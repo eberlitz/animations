@@ -9,10 +9,30 @@ import Simple from "./particles/simple";
 
 // import soundUrl from "./assets/376737_Skullbeatz___Bad_Cat_Maste.mp3";
 import soundUrl from "./assets/AssaultOnMistCastle.ogg";
+import backgroundUrl from "./assets/spaceshooter/Backgrounds/black.png";
+import playerShipUrl from "./assets/spaceshooter/PNG/playerShip1_blue.png";
+import ufoBlueUrl from "./assets/spaceshooter/PNG/ufoBlue.png";
+import ufoGreenUrl from "./assets/spaceshooter/PNG/ufoGreen.png";
+import ufoRedUrl from "./assets/spaceshooter/PNG/ufoRed.png";
+import ufoYellowUrl from "./assets/spaceshooter/PNG/ufoYellow.png";
 
 let totalEnemies = 0;
 const MAX_ENEMIES = 10;
+const enemyTextures = [
+  ufoBlueUrl,
+  ufoGreenUrl,
+  ufoRedUrl,
+  ufoYellowUrl
+].map(url => THREE.ImageUtils.loadTexture(url))
 
+const speed = 3.0;
+const playerControls = {
+  left: 0,
+  right: 0,
+  up: 0,
+  down: 0,
+  space: 0
+}
 const vertexShader = `
 varying vec2 vUv;
 void main() {
@@ -44,7 +64,7 @@ export function startSound(camera: THREE.Camera, scene: THREE.Scene) {
   var audioLoader = new THREE.AudioLoader();
   audioLoader.load(
     soundUrl,
-    function(buffer) {
+    function (buffer) {
       sound.setBuffer(buffer);
       sound.setLoop(true);
       sound.setVolume(0.5);
@@ -133,6 +153,28 @@ const clock = new THREE.Clock();
 const animations = [new Simple(scene).activate()];
 
 scene.add(helpers.addLight());
+
+
+
+var texture = THREE.ImageUtils.loadTexture(backgroundUrl);
+
+var spaceRadius = 300,
+  segments = 64,
+  material = new THREE.MeshBasicMaterial({
+    // color: 0x0000ff, 
+    map: texture,
+    transparent: true,
+    opacity: 0.9
+  });
+
+var space = new THREE.Mesh(new THREE.CircleGeometry(spaceRadius, segments), material);
+space.position.z = -10;
+scene.add(space);
+
+// To get a closed circle use LineLoop instead (see also @jackrugile his comment):
+// scene.add( new THREE.LineLoop( geometry, material ) );
+
+
 // scene.add(new THREE.AmbientLight(0x404040));
 // const dl = new THREE.DirectionalLight(0xc0c0c0);
 // dl.position.set(0, 0, 0);
@@ -142,6 +184,7 @@ const renderer = new THREE.WebGLRenderer({
   alpha: true,
   antialias: true
 });
+renderer.setClearColor(0x000000, 0);
 appEl.appendChild(renderer.domElement);
 
 const frustumSize = 250;
@@ -179,32 +222,48 @@ camera.position.z = 150;
 // runner.position.set(50, 25, 0);
 // scene.add(runner);
 
+
+
+
 function createEnemy(y: number) {
   if (totalEnemies == MAX_ENEMIES) return;
   console.log("create");
+  const enemyTexture = enemyTextures[Math.floor(Math.random() * enemyTextures.length)];
   var geometry = new THREE.BoxBufferGeometry(10, 10, 1, 1, 1, 1);
   const enemy = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
-      color: 0xff0000
+      map: enemyTexture,
+      transparent: true,
+      opacity: 0.9,
+      // color: 0xff0000
     })
   );
-  enemy.position.x = 150;
+  enemy.position.x = spaceRadius;
 
   const turbulence = Math.random();
   const getNext = () => Math.random() * turbulence * 50 - 25 * turbulence;
+
+  let points = [
+    new THREE.Vector3(spaceRadius, y + getNext(), 0),
+    // new THREE.Vector3(100, y + getNext(), 0),
+    new THREE.Vector3(spaceRadius/2, y + getNext(), 0),
+    // new THREE.Vector3(25, y + getNext(), 0),
+    new THREE.Vector3(0, y + getNext(), 0),
+    // new THREE.Vector3(-25, y + getNext(), 0),
+    new THREE.Vector3(-spaceRadius/2, y + getNext(), 0),
+    // new THREE.Vector3(-100, y + getNext(), 0),
+    new THREE.Vector3(-spaceRadius, y + getNext(), 0)
+  ];
+
+
+  const [axis, angle] = [new THREE.Vector3(0, 0, 1), Math.random() * 2 * Math.PI];
+
+  points = points.map(p => p.applyAxisAngle(axis, angle));
+
+
   const pathFn = createCatmullRomPath(
-    [
-      new THREE.Vector3(150, y + getNext(), 0),
-      new THREE.Vector3(100, y + getNext(), 0),
-      new THREE.Vector3(75, y + getNext(), 0),
-      new THREE.Vector3(25, y + getNext(), 0),
-      new THREE.Vector3(0, y + getNext(), 0),
-      new THREE.Vector3(-25, y + getNext(), 0),
-      new THREE.Vector3(-75, y + getNext(), 0),
-      new THREE.Vector3(-100, y + getNext(), 0),
-      new THREE.Vector3(-150, y + getNext(), 0)
-    ],
+    points,
     Math.random() > 0.8 ? 4000 : 5000,
     false
   );
@@ -238,46 +297,78 @@ function createEnemy(y: number) {
 
 const getYPos = () => Math.random() * 150 * 2 - 150;
 
-// createEnemy(getYPos());
-// createEnemy(getYPos());
-// createEnemy(getYPos());
-// createEnemy(getYPos());
-// createEnemy(getYPos());
-// createEnemy(getYPos());
-// createEnemy(getYPos());
-// createEnemy(getYPos());
 
 var geometry = new THREE.BoxBufferGeometry(10, 10, 1, 1, 1, 1);
-const player = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial());
+var playerShipTexture = THREE.ImageUtils.loadTexture(playerShipUrl);
+
+const player = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+  map: playerShipTexture,
+  transparent: true, opacity: 0.9,
+  //color: 0x000000
+}));
 scene.add(player);
 const soundAnalyserUpdate = startSound(camera, scene);
 
-window.addEventListener("resize", onResize);
-window.addEventListener("keydown", onKeyDown);
+window.addEventListener("resize", onResize, false);
+window.addEventListener("keyup", onKeyUp, false);
+window.addEventListener("keydown", onKeyDown, false);
 onResize();
 loop();
 
+
+
+
 function onKeyDown(evt: KeyboardEvent) {
-  console.log(evt.key);
-  const speed = 5;
+  let prevent = true
   switch (evt.key) {
     case "ArrowRight":
-      player.position.x += speed;
+      playerControls.right = 1;
       break;
     case "ArrowLeft":
-      player.position.x -= speed;
+      playerControls.left = 1;
       break;
     case "ArrowUp":
-      player.position.y += speed;
+      playerControls.up = 1;
       break;
     case "ArrowDown":
-      player.position.y -= speed;
+      playerControls.down = 1;
       break;
     case " ":
-      console.log("shoot");
+      playerControls.space = 1;
       break;
     default:
+      prevent = false;
       break;
+  }
+  if (prevent) {
+    evt.preventDefault();
+  }
+}
+
+function onKeyUp(evt: KeyboardEvent) {
+  let prevent = true
+  switch (evt.key) {
+    case "ArrowRight":
+      playerControls.right = 0;
+      break;
+    case "ArrowLeft":
+      playerControls.left = 0;
+      break;
+    case "ArrowUp":
+      playerControls.up = 0;
+      break;
+    case "ArrowDown":
+      playerControls.down = 0;
+      break;
+    case " ":
+      playerControls.space = 0;
+      break;
+    default:
+      prevent = false;
+      break;
+  }
+  if (prevent) {
+    evt.preventDefault();
   }
 }
 
@@ -299,9 +390,34 @@ function onResize(evt?: any) {
   renderer.setSize(width, height);
 }
 
+(window as any).player = player;
+
 function loop(time: number = 0) {
   (window as any).ref = requestAnimationFrame(loop);
   const delta = clock.getDelta();
+
+  const deltaX = playerControls.right - playerControls.left;
+  const deltaY = playerControls.up - playerControls.down;
+
+
+  const newX = player.position.x + deltaX * speed;
+  const newY = player.position.y + deltaY * speed;
+  const newPosition = new THREE.Vector3(newX, newY, 0);
+
+  if (newPosition.length() < spaceRadius) {
+    camera.position.x = player.position.x = newX;
+    camera.position.y = player.position.y = newY;
+  }
+
+  if (deltaX || deltaY) {
+    player.rotation.z = Math.atan2(deltaY, deltaX) - (Math.PI / 2);
+  }
+
+
+
+
+
+
   animations.forEach(a => a.animate(time, delta));
   soundAnalyserUpdate();
   // controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
@@ -335,7 +451,7 @@ function TextureAnimator(
   // which image is currently being displayed?
   this.currentTile = 0;
 
-  this.update = function(milliSec) {
+  this.update = function (milliSec) {
     this.currentDisplayTime += milliSec;
     while (this.currentDisplayTime > this.tileDisplayDuration) {
       this.currentDisplayTime -= this.tileDisplayDuration;
@@ -357,7 +473,7 @@ function createCatmullRomPath(
   const curve = new THREE.CatmullRomCurve3(points);
   curve.getLength();
   let last;
-  return function(t: number) {
+  return function (t: number) {
     const u = (t % velocity) / velocity;
     if (!loop && last > u) {
       return;
