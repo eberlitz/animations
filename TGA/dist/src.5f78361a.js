@@ -43500,6 +43500,36 @@ exports.addLight = addLight;
 //   }
 //   return p2;
 // });
+function TextureAnimator(texture, tilesHoriz, tilesVert, numTiles, tileDispDuration) {
+    // note: texture passed by reference, will be updated by the update function.
+    this.tilesHorizontal = tilesHoriz;
+    this.tilesVertical = tilesVert;
+    // how many images does this spritesheet contain?
+    //  usually equals tilesHoriz * tilesVert, but not necessarily,
+    //  if there at blank tiles at the bottom of the spritesheet.
+    this.numberOfTiles = numTiles;
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1 / this.tilesHorizontal, 1 / this.tilesVertical);
+    // how long should each image be displayed?
+    this.tileDisplayDuration = tileDispDuration;
+    // how long has the current image been displayed?
+    this.currentDisplayTime = 0;
+    // which image is currently being displayed?
+    this.currentTile = 0;
+    this.update = function (milliSec) {
+        this.currentDisplayTime += milliSec;
+        while (this.currentDisplayTime > this.tileDisplayDuration) {
+            this.currentDisplayTime -= this.tileDisplayDuration;
+            this.currentTile++;
+            if (this.currentTile == this.numberOfTiles) this.currentTile = 0;
+            var currentColumn = this.currentTile % this.tilesHorizontal;
+            texture.offset.x = currentColumn / this.tilesHorizontal;
+            var currentRow = Math.floor(this.currentTile / this.tilesHorizontal);
+            texture.offset.y = currentRow / this.tilesVertical;
+        }
+    };
+}
+exports.TextureAnimator = TextureAnimator;
 },{"three":"node_modules/three/build/three.module.js"}],"node_modules/shader-particle-engine/build/SPE.min.js":[function(require,module,exports) {
 var define;
 /* shader-particle-engine 1.0.6
@@ -45463,15 +45493,23 @@ var THREE = __importStar(require("three"));
 require("./lib/OrbitControls");
 require("./lib/GPUParticleSystem");
 var helpers = __importStar(require("./helpers"));
-window.THREE = THREE;
+var untypedWindow = window;
+untypedWindow.THREE = THREE;
+var appEl = document.getElementById("app");
+if (untypedWindow.ref) {
+    cancelAnimationFrame(untypedWindow.ref);
+    while (appEl.children.length) {
+        appEl.removeChild(appEl.firstChild);
+    }
+}
 var shader_particle_engine_1 = __importDefault(require("shader-particle-engine"));
 var simple_1 = __importDefault(require("./particles/simple"));
 /*
 TODO:
-- Multiplayer
-- Explosion
-- Portal Bullets
++ Explosion Particle System
 - Bullets
+- Portal Bullets
+- Multiplayer
 */
 // import runnerImage from "./assets/run.png";
 // import soundUrl from "./assets/376737_Skullbeatz___Bad_Cat_Maste.mp3";
@@ -45485,8 +45523,11 @@ var ufoYellow_png_1 = __importDefault(require("./assets/spaceshooter/PNG/ufoYell
 var smokeparticle_png_1 = __importDefault(require("./assets/smokeparticle.png"));
 var sprite_explosion2_png_1 = __importDefault(require("./assets/sprite-explosion2.png"));
 var textureLoader = new THREE.TextureLoader();
-var totalEnemies = 0;
 var MAX_ENEMIES = 50;
+var FRUSTUM_SIZE = 500;
+var SPACE_RADIUS = FRUSTUM_SIZE / 2;
+var PLAYER_SPEED = 3.0;
+var totalEnemies = 0;
 var enemyTextures = [ufoBlue_png_1["default"], ufoGreen_png_1["default"], ufoRed_png_1["default"], ufoYellow_png_1["default"]].map(function (url) {
     return textureLoader.load(url);
 });
@@ -45512,33 +45553,6 @@ var group = new shader_particle_engine_1["default"].Group({
     depthWrite: true,
     blending: THREE.NormalBlending
 }),
-    debris = {
-    particleCount: 100,
-    type: shader_particle_engine_1["default"].distributions.SPHERE,
-    position: {
-        radius: 0.1
-    },
-    maxAge: {
-        value: 2
-    },
-    // duration: 2,
-    activeMultiplier: 40,
-    velocity: {
-        value: new THREE.Vector3(100)
-    },
-    acceleration: {
-        value: new THREE.Vector3(0, -20, 0),
-        distribution: shader_particle_engine_1["default"].distributions.BOX
-    },
-    size: { value: 2 },
-    drag: {
-        value: 1
-    },
-    color: {
-        value: [new THREE.Color(1, 1, 1), new THREE.Color(1, 1, 0), new THREE.Color(1, 0, 0), new THREE.Color(0.4, 0.2, 0.1)]
-    },
-    opacity: { value: [0.4, 0] }
-},
     fireball = {
     particleCount: 20,
     type: shader_particle_engine_1["default"].distributions.SPHERE,
@@ -45575,22 +45589,9 @@ var group = new shader_particle_engine_1["default"].Group({
         value: new THREE.Color(0.2, 0.2, 0.2)
     },
     opacity: { value: [0, 0, 0.2, 0] }
-},
-    flash = {
-    particleCount: 50,
-    position: { spread: new THREE.Vector3(5, 5, 5) },
-    velocity: {
-        spread: new THREE.Vector3(30),
-        distribution: shader_particle_engine_1["default"].distributions.SPHERE
-    },
-    size: { value: [2, 20, 20, 20] },
-    maxAge: { value: 2 },
-    activeMultiplier: 2000,
-    opacity: { value: [0.5, 0.25, 0, 0] }
 };
 group.addPool(MAX_ENEMIES, fireball, true);
 shockwaveGroup.addPool(MAX_ENEMIES, mist, true);
-var speed = 3.0;
 var playerControls = {
     left: 0,
     right: 0,
@@ -45671,12 +45672,6 @@ function startSound(camera, scene) {
     };
 }
 exports.startSound = startSound;
-var untypedWindow = window;
-untypedWindow.THREE = THREE;
-if (untypedWindow.ref) {
-    cancelAnimationFrame(untypedWindow.ref);
-}
-var appEl = document.getElementById("app");
 var scene = new THREE.Scene();
 var clock = new THREE.Clock();
 var animations = [new simple_1["default"](scene).activate()];
@@ -45687,39 +45682,37 @@ function trigger(at) {
 }
 scene.add(shockwaveGroup.mesh);
 scene.add(group.mesh);
-var spaceRadius = 300;
 var texture = textureLoader.load(black_png_1["default"]),
     segments = 64,
     material = new THREE.MeshBasicMaterial({
-    // color: 0x0000ff,
     map: texture,
     transparent: true,
     opacity: 0.9
 });
-var space = new THREE.Mesh(new THREE.CircleGeometry(spaceRadius, segments), material);
+var space = new THREE.Mesh(new THREE.CircleGeometry(SPACE_RADIUS, segments), material);
 space.position.z = -10;
 scene.add(space);
-// To get a closed circle use LineLoop instead (see also @jackrugile his comment):
-// scene.add( new THREE.LineLoop( geometry, material ) );
-// scene.add(new THREE.AmbientLight(0x404040));
-// const dl = new THREE.DirectionalLight(0xc0c0c0);
-// dl.position.set(0, 0, 0);
-// scene.add(dl);
 var renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: true
 });
 renderer.setClearColor(0x000000, 0);
 appEl.appendChild(renderer.domElement);
-var frustumSize = 300;
 var aspect = window.innerWidth / window.innerHeight;
-var camera = new THREE.OrthographicCamera(frustumSize * aspect / -2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / -2, 0.1, 1000);
-// const camera = new THREE.PerspectiveCamera(35, 0, 0.0001, 10000);
+var camera = new THREE.OrthographicCamera(FRUSTUM_SIZE * aspect / -2, FRUSTUM_SIZE * aspect / 2, FRUSTUM_SIZE / 2, FRUSTUM_SIZE / -2, 0.1, 10000);
+// const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
 camera.position.x = 0;
 camera.position.y = 0;
-camera.position.z = 150;
+camera.position.z = 75;
 camera.zoom = 1;
+camera.lookAt(new THREE.Vector3(0, 1, 0));
+camera.updateMatrix();
+camera.updateMatrixWorld(true);
 window.camera = camera;
+// var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+// var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+// var cube = new THREE.Mesh( geometry, material );
+// scene.add( cube );
 // const controls = new THREE.OrbitControls(camera, renderer.domElement);
 // const textureLoader = new THREE.TextureLoader();
 // var runnerTexture = textureLoader.load(runnerImage);
@@ -45738,7 +45731,6 @@ window.camera = camera;
 // scene.add(runner);
 function createEnemy(y) {
     if (totalEnemies == MAX_ENEMIES) return;
-    console.log("create");
     var enemyTexture = enemyTextures[Math.floor(Math.random() * enemyTextures.length)];
     var geometry = new THREE.BoxBufferGeometry(10, 10, 1, 1, 1, 1);
     var enemy = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
@@ -45748,20 +45740,20 @@ function createEnemy(y) {
         // color: 0xff0000
     }));
     var enemyBox = new THREE.Box3();
-    enemy.position.x = spaceRadius;
+    enemy.position.x = SPACE_RADIUS;
     var turbulence = Math.random();
     var getNext = function getNext() {
         return Math.random() * turbulence * 50 - 25 * turbulence;
     };
-    var points = [new THREE.Vector3(spaceRadius, y + getNext(), 0),
+    var points = [new THREE.Vector3(SPACE_RADIUS, y + getNext(), 0),
     // new THREE.Vector3(100, y + getNext(), 0),
-    new THREE.Vector3(spaceRadius / 2, y + getNext(), 0),
+    new THREE.Vector3(SPACE_RADIUS / 2, y + getNext(), 0),
     // new THREE.Vector3(25, y + getNext(), 0),
     new THREE.Vector3(0, y + getNext(), 0),
     // new THREE.Vector3(-25, y + getNext(), 0),
-    new THREE.Vector3(-spaceRadius / 2, y + getNext(), 0),
+    new THREE.Vector3(-SPACE_RADIUS / 2, y + getNext(), 0),
     // new THREE.Vector3(-100, y + getNext(), 0),
-    new THREE.Vector3(-spaceRadius, y + getNext(), 0)];
+    new THREE.Vector3(-SPACE_RADIUS, y + getNext(), 0)];
     var _a = [new THREE.Vector3(0, 0, 1), Math.random() * 2 * Math.PI],
         axis = _a[0],
         angle = _a[1];
@@ -45791,7 +45783,8 @@ function createEnemy(y) {
             playerBox.setFromObject(player);
             enemyBox.setFromObject(enemy);
             if (playerBox.intersectsBox(enemyBox)) {
-                trigger(enemy.position.clone());
+                var pos = enemy.position.clone();
+                trigger(pos);
                 var idx = animations.indexOf(animator);
                 idx !== -1 && animations.splice(idx, 1);
                 scene.remove(enemy);
@@ -45806,7 +45799,7 @@ function createEnemy(y) {
 var getYPos = function getYPos() {
     return Math.random() * 150 * 2 - 150;
 };
-var geometry = new THREE.BoxBufferGeometry(10, 10, 1, 1, 1, 1);
+var geometry = new THREE.BoxBufferGeometry(5, 5, 1, 1, 1, 1);
 var playerShipTexture = textureLoader.load(playerShip1_blue_png_1["default"]);
 var player = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
     map: playerShipTexture,
@@ -45887,10 +45880,10 @@ function onResize(evt) {
     var width = window.innerWidth;
     var height = window.innerHeight;
     var aspect = width / height;
-    camera.left = -frustumSize * aspect / 2;
-    camera.right = frustumSize * aspect / 2;
-    camera.top = frustumSize / 2;
-    camera.bottom = -frustumSize / 2;
+    camera.left = -FRUSTUM_SIZE * aspect / 2;
+    camera.right = FRUSTUM_SIZE * aspect / 2;
+    camera.top = FRUSTUM_SIZE / 2;
+    camera.bottom = -FRUSTUM_SIZE / 2;
     // const dpr = window.devicePixelRatio > 1 ? 2 : 1;
     // camera.aspect = width / height;
     camera.updateProjectionMatrix();
@@ -45898,6 +45891,10 @@ function onResize(evt) {
     renderer.setSize(width, height);
 }
 window.player = player;
+var playerState = {
+    directionX: 0,
+    directionY: 1
+};
 function loop(time) {
     if (time === void 0) {
         time = 0;
@@ -45907,14 +45904,18 @@ function loop(time) {
     // Update Player position
     var deltaX = playerControls.right - playerControls.left;
     var deltaY = playerControls.up - playerControls.down;
-    var newX = player.position.x + deltaX * speed;
-    var newY = player.position.y + deltaY * speed;
+    var newX = player.position.x + deltaX * PLAYER_SPEED;
+    var newY = player.position.y + deltaY * PLAYER_SPEED;
     var newPosition = new THREE.Vector3(newX, newY, 0);
-    if (newPosition.length() < spaceRadius) {
+    if (newPosition.length() < SPACE_RADIUS) {
         camera.position.x = player.position.x = newX;
         camera.position.y = player.position.y = newY;
+        camera.lookAt(new THREE.Vector3(newX, newY, 0));
+        camera.updateMatrix();
     }
     if (deltaX || deltaY) {
+        playerState.directionX = deltaX;
+        playerState.directionY = deltaY;
         player.rotation.z = Math.atan2(deltaY, deltaX) - Math.PI / 2;
     }
     playerBox.setFromObject(player);
@@ -45928,35 +45929,6 @@ function loop(time) {
     // controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
     renderer.render(scene, camera);
     // annie.update(1000 * delta);
-}
-function TextureAnimator(texture, tilesHoriz, tilesVert, numTiles, tileDispDuration) {
-    // note: texture passed by reference, will be updated by the update function.
-    this.tilesHorizontal = tilesHoriz;
-    this.tilesVertical = tilesVert;
-    // how many images does this spritesheet contain?
-    //  usually equals tilesHoriz * tilesVert, but not necessarily,
-    //  if there at blank tiles at the bottom of the spritesheet.
-    this.numberOfTiles = numTiles;
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(1 / this.tilesHorizontal, 1 / this.tilesVertical);
-    // how long should each image be displayed?
-    this.tileDisplayDuration = tileDispDuration;
-    // how long has the current image been displayed?
-    this.currentDisplayTime = 0;
-    // which image is currently being displayed?
-    this.currentTile = 0;
-    this.update = function (milliSec) {
-        this.currentDisplayTime += milliSec;
-        while (this.currentDisplayTime > this.tileDisplayDuration) {
-            this.currentDisplayTime -= this.tileDisplayDuration;
-            this.currentTile++;
-            if (this.currentTile == this.numberOfTiles) this.currentTile = 0;
-            var currentColumn = this.currentTile % this.tilesHorizontal;
-            texture.offset.x = currentColumn / this.tilesHorizontal;
-            var currentRow = Math.floor(this.currentTile / this.tilesHorizontal);
-            texture.offset.y = currentRow / this.tilesVertical;
-        }
-    };
 }
 function createCatmullRomPath(points, velocity, loop) {
     if (velocity === void 0) {
@@ -45975,7 +45947,6 @@ function createCatmullRomPath(points, velocity, loop) {
         }
         last = u;
         return curve.getPointAt(u);
-        // return curve.getPointAt(t % curve.getLength());
     };
 }
 var shots = [];
@@ -45988,20 +45959,19 @@ function shoot() {
     var shot = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16), shotMtl);
     var shotBox = new THREE.Box3();
     shot.position.copy(player.position);
+    var direction = new THREE.Vector3(playerState.directionX, playerState.directionY, 0).multiplyScalar(3.0);
     var tick = 0;
     var animator = {
         animate: function animate(time, delta) {
             tick += delta;
             var t = tick * 1000;
-            // TODO: update shot position
-            var speed = 3.0;
-            // shot.translateX(speed);
-            // shot.translateY(speed);
-            // shot.translateZ(speed);
-            var direction = shot.getWorldDirection(new THREE.Vector3());
-            shot.position.add(direction.multiplyScalar(speed));
+            // new THREE.Matrix4()
+            //   .makeRotationAxis(new THREE.Vector3(0, 0, 1), Math.PI / 2)
+            //   .multiplyVector3(player.up);
+            // const direction = player.up.mu;
+            shot.position.add(direction);
             // IS OUT OF SIGHT
-            if (shot.position.length() >= spaceRadius) {
+            if (shot.position.length() >= SPACE_RADIUS) {
                 destroy();
             } else {
                 shotBox.setFromObject(shot);
