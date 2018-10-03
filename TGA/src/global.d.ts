@@ -10,3 +10,4 @@ declare module "*.mp3" {
   var _: string;
   export default _;
 }
+declare module 'shader-particle-engine';

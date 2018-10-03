@@ -3,9 +3,19 @@ import "./lib/OrbitControls";
 import "./lib/GPUParticleSystem";
 import * as helpers from "./helpers";
 
-// import runnerImage from "./assets/run.png";
+(window as any).THREE = THREE;
+import SPE from "shader-particle-engine";
 
 import Simple from "./particles/simple";
+/*
+TODO:
+- Multiplayer
+- Explosion
+- Portal Bullets
+- Bullets
+*/
+
+// import runnerImage from "./assets/run.png";
 
 // import soundUrl from "./assets/376737_Skullbeatz___Bad_Cat_Maste.mp3";
 import soundUrl from "./assets/AssaultOnMistCastle.ogg";
@@ -16,14 +26,124 @@ import ufoGreenUrl from "./assets/spaceshooter/PNG/ufoGreen.png";
 import ufoRedUrl from "./assets/spaceshooter/PNG/ufoRed.png";
 import ufoYellowUrl from "./assets/spaceshooter/PNG/ufoYellow.png";
 
+import smokeParticleUrl from "./assets/smokeparticle.png";
+import spriteExplosion2Url from "./assets/sprite-explosion2.png";
+
+const textureLoader = new THREE.TextureLoader();
+
 let totalEnemies = 0;
-const MAX_ENEMIES = 10;
-const enemyTextures = [
-  ufoBlueUrl,
-  ufoGreenUrl,
-  ufoRedUrl,
-  ufoYellowUrl
-].map(url => THREE.ImageUtils.loadTexture(url))
+const MAX_ENEMIES = 50;
+const enemyTextures = [ufoBlueUrl, ufoGreenUrl, ufoRedUrl, ufoYellowUrl].map(
+  url => textureLoader.load(url)
+);
+
+const spriteExplosionTexture = textureLoader.load(spriteExplosion2Url);
+var group = new SPE.Group({
+    texture: {
+      value: spriteExplosionTexture,
+      frames: new THREE.Vector2(5, 5),
+      loop: 1
+    },
+    depthTest: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    maxParticleCount: 3000,
+    scale: 600
+  }),
+  shockwaveGroup = new SPE.Group({
+    maxParticleCount: 3000,
+    texture: {
+      value: textureLoader.load(smokeParticleUrl)
+    },
+    depthTest: false,
+    depthWrite: true,
+    blending: THREE.NormalBlending
+  }),
+  debris = {
+    particleCount: 100,
+    type: SPE.distributions.SPHERE,
+    position: {
+      radius: 0.1
+    },
+    maxAge: {
+      value: 2
+    },
+    // duration: 2,
+    activeMultiplier: 40,
+
+    velocity: {
+      value: new THREE.Vector3(100)
+    },
+    acceleration: {
+      value: new THREE.Vector3(0, -20, 0),
+      distribution: SPE.distributions.BOX
+    },
+    size: { value: 2 },
+    drag: {
+      value: 1
+    },
+    color: {
+      value: [
+        new THREE.Color(1, 1, 1),
+        new THREE.Color(1, 1, 0),
+        new THREE.Color(1, 0, 0),
+        new THREE.Color(0.4, 0.2, 0.1)
+      ]
+    },
+    opacity: { value: [0.4, 0] }
+  },
+  fireball = {
+    particleCount: 20,
+    type: SPE.distributions.SPHERE,
+    position: {
+      radius: 1
+    },
+    maxAge: { value: 2 },
+    // duration: 1,
+    activeMultiplier: 20,
+    velocity: {
+      value: new THREE.Vector3(10)
+    },
+    size: { value: [20, 100] },
+    color: {
+      value: [new THREE.Color(0.5, 0.1, 0.05), new THREE.Color(0.2, 0.2, 0.2)]
+    },
+    opacity: { value: [0.5, 0.35, 0.1, 0] }
+  },
+  mist = {
+    particleCount: 50,
+    position: {
+      spread: new THREE.Vector3(10, 10, 10),
+      distribution: SPE.distributions.SPHERE
+    },
+    maxAge: { value: 2 },
+    // duration: 1,
+    activeMultiplier: 2000,
+    velocity: {
+      value: new THREE.Vector3(8, 3, 10),
+      distribution: SPE.distributions.SPHERE
+    },
+    size: { value: 40 },
+    color: {
+      value: new THREE.Color(0.2, 0.2, 0.2)
+    },
+    opacity: { value: [0, 0, 0.2, 0] }
+  },
+  flash = {
+    particleCount: 50,
+    position: { spread: new THREE.Vector3(5, 5, 5) },
+    velocity: {
+      spread: new THREE.Vector3(30),
+      distribution: SPE.distributions.SPHERE
+    },
+    size: { value: [2, 20, 20, 20] },
+    maxAge: { value: 2 },
+    activeMultiplier: 2000,
+    opacity: { value: [0.5, 0.25, 0, 0] }
+  };
+
+group.addPool(MAX_ENEMIES, fireball, true);
+shockwaveGroup.addPool(MAX_ENEMIES, mist, true);
 
 const speed = 3.0;
 const playerControls = {
@@ -32,7 +152,7 @@ const playerControls = {
   up: 0,
   down: 0,
   space: 0
-}
+};
 const vertexShader = `
 varying vec2 vUv;
 void main() {
@@ -64,7 +184,7 @@ export function startSound(camera: THREE.Camera, scene: THREE.Scene) {
   var audioLoader = new THREE.AudioLoader();
   audioLoader.load(
     soundUrl,
-    function (buffer) {
+    function(buffer) {
       sound.setBuffer(buffer);
       sound.setLoop(true);
       sound.setVolume(0.5);
@@ -154,26 +274,32 @@ const animations = [new Simple(scene).activate()];
 
 scene.add(helpers.addLight());
 
+function trigger(at: THREE.Vector3) {
+  group.triggerPoolEmitter(1, at);
+  shockwaveGroup.triggerPoolEmitter(1, at);
+}
 
+scene.add(shockwaveGroup.mesh);
+scene.add(group.mesh);
 
-var texture = THREE.ImageUtils.loadTexture(backgroundUrl);
-
-var spaceRadius = 300,
+var spaceRadius = 300;
+var texture = textureLoader.load(backgroundUrl),
   segments = 64,
   material = new THREE.MeshBasicMaterial({
-    // color: 0x0000ff, 
+    // color: 0x0000ff,
     map: texture,
     transparent: true,
     opacity: 0.9
   });
-
-var space = new THREE.Mesh(new THREE.CircleGeometry(spaceRadius, segments), material);
+var space = new THREE.Mesh(
+  new THREE.CircleGeometry(spaceRadius, segments),
+  material
+);
 space.position.z = -10;
 scene.add(space);
 
 // To get a closed circle use LineLoop instead (see also @jackrugile his comment):
 // scene.add( new THREE.LineLoop( geometry, material ) );
-
 
 // scene.add(new THREE.AmbientLight(0x404040));
 // const dl = new THREE.DirectionalLight(0xc0c0c0);
@@ -187,20 +313,21 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setClearColor(0x000000, 0);
 appEl.appendChild(renderer.domElement);
 
-const frustumSize = 250;
+const frustumSize = 300;
 var aspect = window.innerWidth / window.innerHeight;
 const camera = new THREE.OrthographicCamera(
   (frustumSize * aspect) / -2,
   (frustumSize * aspect) / 2,
   frustumSize / 2,
   frustumSize / -2,
-  1,
+  0.1,
   1000
 );
 // const camera = new THREE.PerspectiveCamera(35, 0, 0.0001, 10000);
 camera.position.x = 0;
 camera.position.y = 0;
 camera.position.z = 150;
+camera.zoom = 1;
 (window as any).camera = camera;
 
 // const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -222,23 +349,23 @@ camera.position.z = 150;
 // runner.position.set(50, 25, 0);
 // scene.add(runner);
 
-
-
-
 function createEnemy(y: number) {
   if (totalEnemies == MAX_ENEMIES) return;
   console.log("create");
-  const enemyTexture = enemyTextures[Math.floor(Math.random() * enemyTextures.length)];
+  const enemyTexture =
+    enemyTextures[Math.floor(Math.random() * enemyTextures.length)];
   var geometry = new THREE.BoxBufferGeometry(10, 10, 1, 1, 1, 1);
   const enemy = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
       map: enemyTexture,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.9
       // color: 0xff0000
     })
   );
+  const enemyBox = new THREE.Box3();
+
   enemy.position.x = spaceRadius;
 
   const turbulence = Math.random();
@@ -247,26 +374,28 @@ function createEnemy(y: number) {
   let points = [
     new THREE.Vector3(spaceRadius, y + getNext(), 0),
     // new THREE.Vector3(100, y + getNext(), 0),
-    new THREE.Vector3(spaceRadius/2, y + getNext(), 0),
+    new THREE.Vector3(spaceRadius / 2, y + getNext(), 0),
     // new THREE.Vector3(25, y + getNext(), 0),
     new THREE.Vector3(0, y + getNext(), 0),
     // new THREE.Vector3(-25, y + getNext(), 0),
-    new THREE.Vector3(-spaceRadius/2, y + getNext(), 0),
+    new THREE.Vector3(-spaceRadius / 2, y + getNext(), 0),
     // new THREE.Vector3(-100, y + getNext(), 0),
     new THREE.Vector3(-spaceRadius, y + getNext(), 0)
   ];
 
-
-  const [axis, angle] = [new THREE.Vector3(0, 0, 1), Math.random() * 2 * Math.PI];
+  const [axis, angle] = [
+    new THREE.Vector3(0, 0, 1),
+    Math.random() * 2 * Math.PI
+  ];
 
   points = points.map(p => p.applyAxisAngle(axis, angle));
-
 
   const pathFn = createCatmullRomPath(
     points,
     Math.random() > 0.8 ? 4000 : 5000,
     false
   );
+
   let tick = 0;
   const animator = {
     animate: (time: number, delta: number) => {
@@ -286,6 +415,15 @@ function createEnemy(y: number) {
         scene.remove(enemy);
         totalEnemies--;
       }
+      playerBox.setFromObject(player);
+      enemyBox.setFromObject(enemy);
+      if (playerBox.intersectsBox(enemyBox)) {
+        trigger(enemy.position.clone());
+        const idx = animations.indexOf(animator);
+        idx !== -1 && animations.splice(idx, 1);
+        scene.remove(enemy);
+        totalEnemies--;
+      }
     }
   } as any;
 
@@ -297,15 +435,19 @@ function createEnemy(y: number) {
 
 const getYPos = () => Math.random() * 150 * 2 - 150;
 
-
 var geometry = new THREE.BoxBufferGeometry(10, 10, 1, 1, 1, 1);
-var playerShipTexture = THREE.ImageUtils.loadTexture(playerShipUrl);
+var playerShipTexture = textureLoader.load(playerShipUrl);
 
-const player = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-  map: playerShipTexture,
-  transparent: true, opacity: 0.9,
-  //color: 0x000000
-}));
+const player = new THREE.Mesh(
+  geometry,
+  new THREE.MeshBasicMaterial({
+    map: playerShipTexture,
+    transparent: true,
+    opacity: 0.9
+    //color: 0x000000
+  })
+);
+const playerBox = new THREE.Box3();
 scene.add(player);
 const soundAnalyserUpdate = startSound(camera, scene);
 
@@ -315,21 +457,22 @@ window.addEventListener("keydown", onKeyDown, false);
 onResize();
 loop();
 
-
-
-
 function onKeyDown(evt: KeyboardEvent) {
-  let prevent = true
+  let prevent = true;
   switch (evt.key) {
+    case "d":
     case "ArrowRight":
       playerControls.right = 1;
       break;
+    case "a":
     case "ArrowLeft":
       playerControls.left = 1;
       break;
+    case "w":
     case "ArrowUp":
       playerControls.up = 1;
       break;
+    case "s":
     case "ArrowDown":
       playerControls.down = 1;
       break;
@@ -346,21 +489,26 @@ function onKeyDown(evt: KeyboardEvent) {
 }
 
 function onKeyUp(evt: KeyboardEvent) {
-  let prevent = true
+  let prevent = true;
   switch (evt.key) {
+    case "d":
     case "ArrowRight":
       playerControls.right = 0;
       break;
+    case "a":
     case "ArrowLeft":
       playerControls.left = 0;
       break;
+    case "w":
     case "ArrowUp":
       playerControls.up = 0;
       break;
+    case "s":
     case "ArrowDown":
       playerControls.down = 0;
       break;
     case " ":
+      shoot();
       playerControls.space = 0;
       break;
     default:
@@ -387,6 +535,7 @@ function onResize(evt?: any) {
   camera.updateProjectionMatrix();
 
   // renderer.setPixelRatio(dpr);
+
   renderer.setSize(width, height);
 }
 
@@ -396,27 +545,24 @@ function loop(time: number = 0) {
   (window as any).ref = requestAnimationFrame(loop);
   const delta = clock.getDelta();
 
+  // Update Player position
   const deltaX = playerControls.right - playerControls.left;
   const deltaY = playerControls.up - playerControls.down;
-
-
   const newX = player.position.x + deltaX * speed;
   const newY = player.position.y + deltaY * speed;
   const newPosition = new THREE.Vector3(newX, newY, 0);
-
   if (newPosition.length() < spaceRadius) {
     camera.position.x = player.position.x = newX;
     camera.position.y = player.position.y = newY;
   }
-
   if (deltaX || deltaY) {
-    player.rotation.z = Math.atan2(deltaY, deltaX) - (Math.PI / 2);
+    player.rotation.z = Math.atan2(deltaY, deltaX) - Math.PI / 2;
   }
+  playerBox.setFromObject(player);
 
-
-
-
-
+  // animate explosions
+  group.tick(delta);
+  shockwaveGroup.tick(delta);
 
   animations.forEach(a => a.animate(time, delta));
   soundAnalyserUpdate();
@@ -451,7 +597,7 @@ function TextureAnimator(
   // which image is currently being displayed?
   this.currentTile = 0;
 
-  this.update = function (milliSec) {
+  this.update = function(milliSec) {
     this.currentDisplayTime += milliSec;
     while (this.currentDisplayTime > this.tileDisplayDuration) {
       this.currentDisplayTime -= this.tileDisplayDuration;
@@ -473,7 +619,7 @@ function createCatmullRomPath(
   const curve = new THREE.CatmullRomCurve3(points);
   curve.getLength();
   let last;
-  return function (t: number) {
+  return function(t: number) {
     const u = (t % velocity) / velocity;
     if (!loop && last > u) {
       return;
@@ -482,4 +628,54 @@ function createCatmullRomPath(
     return curve.getPointAt(u);
     // return curve.getPointAt(t % curve.getLength());
   };
+}
+
+const shots = [];
+var shotMtl = new THREE.MeshBasicMaterial({
+  color: 0xff0000,
+  transparent: true,
+  opacity: 0.5
+});
+
+function shoot() {
+  const shot = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16), shotMtl);
+  const shotBox = new THREE.Box3();
+  shot.position.copy(player.position);
+
+  let tick = 0;
+  const animator = {
+    animate: (time: number, delta: number) => {
+      tick += delta;
+      const t = tick * 1000;
+
+      // TODO: update shot position
+      const speed = 3.0;
+      // shot.translateX(speed);
+      // shot.translateY(speed);
+      // shot.translateZ(speed);
+
+      const direction = shot.getWorldDirection(new THREE.Vector3());
+      shot.position.add(direction.multiplyScalar(speed));
+
+
+      // IS OUT OF SIGHT
+      if (shot.position.length() >= spaceRadius) {
+        destroy();
+      } else {
+        shotBox.setFromObject(shot);
+      }
+    }
+  } as any;
+
+  shots.push(shot);
+  animations.push(animator);
+  scene.add(shot);
+  // ---------------
+  function destroy() {
+    let idx = animations.indexOf(animator);
+    idx !== -1 && animations.splice(idx, 1);
+    idx = shots.indexOf(shot);
+    idx !== -1 && shots.splice(idx, 1);
+    scene.remove(shot);
+  }
 }
