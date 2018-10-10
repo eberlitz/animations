@@ -3,6 +3,39 @@ import "./lib/OrbitControls";
 import "./lib/GPUParticleSystem";
 import * as helpers from "./helpers";
 
+const MAX_LIFE = 5;
+let life = 5;
+let currentTime = 0;
+
+function updateTime(time: number) {
+  const timeEl = document.getElementById("time");
+  (timeEl as any).time = time;
+  time = time - currentTime;
+  timeEl.innerHTML = `Tempo: ${Math.floor(time / 1000)}`;
+}
+
+function removeOneLife() {
+  life--;
+  updateLife(life);
+  if (life === 0) {
+    const timeEl = document.getElementById("time");
+    const time = (timeEl as any).time;
+    setTimeout(() => {
+      alert("Game Over!\n Your time: " + Math.floor(time / 1000));
+      currentTime = time;
+      life = MAX_LIFE;
+      updateLife(life);
+    }, 100);
+  }
+}
+
+function updateLife(life: number) {
+  const lifeEl = document.getElementById("life");
+  lifeEl.innerHTML = `Vidas: ${life}/${MAX_LIFE}`;
+}
+
+updateLife(life);
+
 const untypedWindow = window as any;
 untypedWindow.THREE = THREE;
 const appEl = document.getElementById("app");
@@ -29,10 +62,12 @@ TODO:
 import soundUrl from "./assets/AssaultOnMistCastle.ogg";
 import backgroundUrl from "./assets/spaceshooter/Backgrounds/black.png";
 import playerShipUrl from "./assets/spaceshooter/PNG/playerShip1_blue.png";
-import ufoBlueUrl from "./assets/spaceshooter/PNG/ufoBlue.png";
-import ufoGreenUrl from "./assets/spaceshooter/PNG/ufoGreen.png";
-import ufoRedUrl from "./assets/spaceshooter/PNG/ufoRed.png";
+import ufoBlueUrl from "./assets/spaceshooter/PNG/Enemies/enemyBlue1.png";
+import ufoGreenUrl from "./assets/spaceshooter/PNG/Enemies/enemyGreen2.png";
+import ufoRedUrl from "./assets/spaceshooter/PNG/Enemies/enemyRed3.png";
 import ufoYellowUrl from "./assets/spaceshooter/PNG/ufoYellow.png";
+
+// import ufoYellowUrl from "./assets/spaceshooter/PNG/Enemies/enemyBlack1.png";
 
 import smokeParticleUrl from "./assets/smokeparticle.png";
 import spriteExplosion2Url from "./assets/sprite-explosion2.png";
@@ -40,7 +75,7 @@ import spriteExplosion2Url from "./assets/sprite-explosion2.png";
 const textureLoader = new THREE.TextureLoader();
 
 const MAX_ENEMIES = 50;
-const FRUSTUM_SIZE = 500;
+const FRUSTUM_SIZE = 400;
 const SPACE_RADIUS = FRUSTUM_SIZE / 2;
 const PLAYER_SPEED = 3.0;
 
@@ -60,7 +95,7 @@ var group = new SPE.Group({
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     maxParticleCount: 3000,
-    scale: 600
+    scale: 300
   }),
   shockwaveGroup = new SPE.Group({
     maxParticleCount: 3000,
@@ -83,7 +118,7 @@ var group = new SPE.Group({
     velocity: {
       value: new THREE.Vector3(10)
     },
-    size: { value: [20, 100] },
+    size: { value: [10, 50] },
     color: {
       value: [new THREE.Color(0.5, 0.1, 0.05), new THREE.Color(0.2, 0.2, 0.2)]
     },
@@ -102,7 +137,7 @@ var group = new SPE.Group({
       value: new THREE.Vector3(8, 3, 10),
       distribution: SPE.distributions.SPHERE
     },
-    size: { value: 40 },
+    size: { value: 20 },
     color: {
       value: new THREE.Color(0.2, 0.2, 0.2)
     },
@@ -179,7 +214,8 @@ export function startSound(camera: THREE.Camera, scene: THREE.Scene) {
   });
   var geometry = new THREE.PlaneBufferGeometry(1, 1);
   var mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
+  // mesh.position.z = -100;
+  // scene.add(mesh);
 
   const delta = [];
 
@@ -232,7 +268,7 @@ const animations = [new Simple(scene).activate()];
 
 scene.add(helpers.addLight());
 
-function trigger(at: THREE.Vector3) {
+function triggerExplosion(at: THREE.Vector3) {
   group.triggerPoolEmitter(1, at);
   shockwaveGroup.triggerPoolEmitter(1, at);
 }
@@ -267,14 +303,21 @@ const camera = new THREE.OrthographicCamera(
   (FRUSTUM_SIZE * aspect) / 2,
   FRUSTUM_SIZE / 2,
   FRUSTUM_SIZE / -2,
-  0.1,
-  10000
+  1,
+  4000
 );
-// const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
+// const camera = new THREE.PerspectiveCamera(
+//   45,
+//   window.innerWidth / window.innerHeight,
+//   1,
+//   10000
+// );
 camera.position.x = 0;
 camera.position.y = 0;
 camera.position.z = 75;
 camera.zoom = 1;
+camera.lookAt(new THREE.Vector3(0, 0, 0));
+camera.updateMatrix();
 
 camera.lookAt(new THREE.Vector3(0, 1, 0));
 camera.updateMatrix();
@@ -287,6 +330,7 @@ camera.updateMatrixWorld(true);
 // scene.add( cube );
 
 // const controls = new THREE.OrbitControls(camera, renderer.domElement);
+// controls.enableKeys = false;
 
 // const textureLoader = new THREE.TextureLoader();
 // var runnerTexture = textureLoader.load(runnerImage);
@@ -324,19 +368,17 @@ function createEnemy(y: number) {
   enemy.position.x = SPACE_RADIUS;
 
   const turbulence = Math.random();
-  const getNext = () => Math.random() * turbulence * 50 - 25 * turbulence;
+  const getNext = () => Math.random() * turbulence * (200 - 100) * turbulence;
 
-  let points = [
-    new THREE.Vector3(SPACE_RADIUS, y + getNext(), 0),
-    // new THREE.Vector3(100, y + getNext(), 0),
-    new THREE.Vector3(SPACE_RADIUS / 2, y + getNext(), 0),
-    // new THREE.Vector3(25, y + getNext(), 0),
-    new THREE.Vector3(0, y + getNext(), 0),
-    // new THREE.Vector3(-25, y + getNext(), 0),
-    new THREE.Vector3(-SPACE_RADIUS / 2, y + getNext(), 0),
-    // new THREE.Vector3(-100, y + getNext(), 0),
-    new THREE.Vector3(-SPACE_RADIUS, y + getNext(), 0)
-  ];
+  let currentX = -SPACE_RADIUS;
+  const max = SPACE_RADIUS;
+  const step = (-currentX + max) / 10;
+
+  let points = [];
+  while (currentX < max) {
+    points.push(new THREE.Vector3(currentX, y + getNext(), 0));
+    currentX += step;
+  }
 
   const [axis, angle] = [
     new THREE.Vector3(0, 0, 1),
@@ -363,6 +405,7 @@ function createEnemy(y: number) {
         if (next) {
           enemy.lookAt(next);
           enemy.rotateY(Math.PI / 2);
+          enemy.rotateZ(-Math.PI / 2);
         }
       } else {
         const idx = animations.indexOf(animator);
@@ -374,11 +417,12 @@ function createEnemy(y: number) {
       enemyBox.setFromObject(enemy);
       if (playerBox.intersectsBox(enemyBox)) {
         const pos = enemy.position.clone();
-        trigger(pos);
+        triggerExplosion(pos);
         const idx = animations.indexOf(animator);
         idx !== -1 && animations.splice(idx, 1);
         scene.remove(enemy);
         totalEnemies--;
+        removeOneLife();
       }
     }
   } as any;
@@ -464,7 +508,7 @@ function onKeyUp(evt: KeyboardEvent) {
       playerControls.down = 0;
       break;
     case " ":
-      shoot();
+      // shoot();
       playerControls.space = 0;
       break;
     default:
@@ -531,8 +575,11 @@ function loop(time: number = 0) {
 
   animations.forEach(a => a.animate(time, delta));
   soundAnalyserUpdate();
+  // if (typeof controls !== "undefined") {
   // controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+  // }
   renderer.render(scene, camera);
+  updateTime(time);
   // annie.update(1000 * delta);
 }
 

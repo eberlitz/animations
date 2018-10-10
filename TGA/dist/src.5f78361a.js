@@ -45462,12 +45462,12 @@ module.exports = "/AssaultOnMistCastle.c156856a.ogg";
 module.exports = "/black.bea006de.png";
 },{}],"src/assets/spaceshooter/PNG/playerShip1_blue.png":[function(require,module,exports) {
 module.exports = "/playerShip1_blue.adbf936a.png";
-},{}],"src/assets/spaceshooter/PNG/ufoBlue.png":[function(require,module,exports) {
-module.exports = "/ufoBlue.4ffab4dc.png";
-},{}],"src/assets/spaceshooter/PNG/ufoGreen.png":[function(require,module,exports) {
-module.exports = "/ufoGreen.93be81cc.png";
-},{}],"src/assets/spaceshooter/PNG/ufoRed.png":[function(require,module,exports) {
-module.exports = "/ufoRed.aae04781.png";
+},{}],"src/assets/spaceshooter/PNG/Enemies/enemyBlue1.png":[function(require,module,exports) {
+module.exports = "/enemyBlue1.8e79a8f2.png";
+},{}],"src/assets/spaceshooter/PNG/Enemies/enemyGreen2.png":[function(require,module,exports) {
+module.exports = "/enemyGreen2.030c5a7b.png";
+},{}],"src/assets/spaceshooter/PNG/Enemies/enemyRed3.png":[function(require,module,exports) {
+module.exports = "/enemyRed3.847b26be.png";
 },{}],"src/assets/spaceshooter/PNG/ufoYellow.png":[function(require,module,exports) {
 module.exports = "/ufoYellow.4e6ab8b0.png";
 },{}],"src/assets/smokeparticle.png":[function(require,module,exports) {
@@ -45493,6 +45493,34 @@ var THREE = __importStar(require("three"));
 require("./lib/OrbitControls");
 require("./lib/GPUParticleSystem");
 var helpers = __importStar(require("./helpers"));
+var MAX_LIFE = 5;
+var life = 5;
+var currentTime = 0;
+function updateTime(time) {
+    var timeEl = document.getElementById("time");
+    timeEl.time = time;
+    time = time - currentTime;
+    timeEl.innerHTML = "Tempo: " + Math.floor(time / 1000);
+}
+function removeOneLife() {
+    life--;
+    updateLife(life);
+    if (life === 0) {
+        var timeEl = document.getElementById("time");
+        var time_1 = timeEl.time;
+        setTimeout(function () {
+            alert("Game Over!\n Your time: " + Math.floor(time_1 / 1000));
+            currentTime = time_1;
+            life = MAX_LIFE;
+            updateLife(life);
+        }, 100);
+    }
+}
+function updateLife(life) {
+    var lifeEl = document.getElementById("life");
+    lifeEl.innerHTML = "Vidas: " + life + "/" + MAX_LIFE;
+}
+updateLife(life);
 var untypedWindow = window;
 untypedWindow.THREE = THREE;
 var appEl = document.getElementById("app");
@@ -45516,19 +45544,20 @@ TODO:
 var AssaultOnMistCastle_ogg_1 = __importDefault(require("./assets/AssaultOnMistCastle.ogg"));
 var black_png_1 = __importDefault(require("./assets/spaceshooter/Backgrounds/black.png"));
 var playerShip1_blue_png_1 = __importDefault(require("./assets/spaceshooter/PNG/playerShip1_blue.png"));
-var ufoBlue_png_1 = __importDefault(require("./assets/spaceshooter/PNG/ufoBlue.png"));
-var ufoGreen_png_1 = __importDefault(require("./assets/spaceshooter/PNG/ufoGreen.png"));
-var ufoRed_png_1 = __importDefault(require("./assets/spaceshooter/PNG/ufoRed.png"));
+var enemyBlue1_png_1 = __importDefault(require("./assets/spaceshooter/PNG/Enemies/enemyBlue1.png"));
+var enemyGreen2_png_1 = __importDefault(require("./assets/spaceshooter/PNG/Enemies/enemyGreen2.png"));
+var enemyRed3_png_1 = __importDefault(require("./assets/spaceshooter/PNG/Enemies/enemyRed3.png"));
 var ufoYellow_png_1 = __importDefault(require("./assets/spaceshooter/PNG/ufoYellow.png"));
+// import ufoYellowUrl from "./assets/spaceshooter/PNG/Enemies/enemyBlack1.png";
 var smokeparticle_png_1 = __importDefault(require("./assets/smokeparticle.png"));
 var sprite_explosion2_png_1 = __importDefault(require("./assets/sprite-explosion2.png"));
 var textureLoader = new THREE.TextureLoader();
 var MAX_ENEMIES = 50;
-var FRUSTUM_SIZE = 500;
+var FRUSTUM_SIZE = 400;
 var SPACE_RADIUS = FRUSTUM_SIZE / 2;
 var PLAYER_SPEED = 3.0;
 var totalEnemies = 0;
-var enemyTextures = [ufoBlue_png_1["default"], ufoGreen_png_1["default"], ufoRed_png_1["default"], ufoYellow_png_1["default"]].map(function (url) {
+var enemyTextures = [enemyBlue1_png_1["default"], enemyGreen2_png_1["default"], enemyRed3_png_1["default"], ufoYellow_png_1["default"]].map(function (url) {
     return textureLoader.load(url);
 });
 var spriteExplosionTexture = textureLoader.load(sprite_explosion2_png_1["default"]);
@@ -45542,7 +45571,7 @@ var group = new shader_particle_engine_1["default"].Group({
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     maxParticleCount: 3000,
-    scale: 600
+    scale: 300
 }),
     shockwaveGroup = new shader_particle_engine_1["default"].Group({
     maxParticleCount: 3000,
@@ -45565,7 +45594,7 @@ var group = new shader_particle_engine_1["default"].Group({
     velocity: {
         value: new THREE.Vector3(10)
     },
-    size: { value: [20, 100] },
+    size: { value: [10, 50] },
     color: {
         value: [new THREE.Color(0.5, 0.1, 0.05), new THREE.Color(0.2, 0.2, 0.2)]
     },
@@ -45584,7 +45613,7 @@ var group = new shader_particle_engine_1["default"].Group({
         value: new THREE.Vector3(8, 3, 10),
         distribution: shader_particle_engine_1["default"].distributions.SPHERE
     },
-    size: { value: 40 },
+    size: { value: 20 },
     color: {
         value: new THREE.Color(0.2, 0.2, 0.2)
     },
@@ -45630,7 +45659,8 @@ function startSound(camera, scene) {
     });
     var geometry = new THREE.PlaneBufferGeometry(1, 1);
     var mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    // mesh.position.z = -100;
+    // scene.add(mesh);
     var delta = [];
     var last;
     var range = 25;
@@ -45676,7 +45706,7 @@ var scene = new THREE.Scene();
 var clock = new THREE.Clock();
 var animations = [new simple_1["default"](scene).activate()];
 scene.add(helpers.addLight());
-function trigger(at) {
+function triggerExplosion(at) {
     group.triggerPoolEmitter(1, at);
     shockwaveGroup.triggerPoolEmitter(1, at);
 }
@@ -45699,12 +45729,19 @@ var renderer = new THREE.WebGLRenderer({
 renderer.setClearColor(0x000000, 0);
 appEl.appendChild(renderer.domElement);
 var aspect = window.innerWidth / window.innerHeight;
-var camera = new THREE.OrthographicCamera(FRUSTUM_SIZE * aspect / -2, FRUSTUM_SIZE * aspect / 2, FRUSTUM_SIZE / 2, FRUSTUM_SIZE / -2, 0.1, 10000);
-// const camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000);
+var camera = new THREE.OrthographicCamera(FRUSTUM_SIZE * aspect / -2, FRUSTUM_SIZE * aspect / 2, FRUSTUM_SIZE / 2, FRUSTUM_SIZE / -2, 1, 4000);
+// const camera = new THREE.PerspectiveCamera(
+//   45,
+//   window.innerWidth / window.innerHeight,
+//   1,
+//   10000
+// );
 camera.position.x = 0;
 camera.position.y = 0;
 camera.position.z = 75;
 camera.zoom = 1;
+camera.lookAt(new THREE.Vector3(0, 0, 0));
+camera.updateMatrix();
 camera.lookAt(new THREE.Vector3(0, 1, 0));
 camera.updateMatrix();
 camera.updateMatrixWorld(true);
@@ -45714,6 +45751,7 @@ window.camera = camera;
 // var cube = new THREE.Mesh( geometry, material );
 // scene.add( cube );
 // const controls = new THREE.OrbitControls(camera, renderer.domElement);
+// controls.enableKeys = false;
 // const textureLoader = new THREE.TextureLoader();
 // var runnerTexture = textureLoader.load(runnerImage);
 // var annie = new TextureAnimator(runnerTexture, 10, 1, 10, 75); // texture, #horiz, #vert, #total, duration.
@@ -45743,17 +45781,16 @@ function createEnemy(y) {
     enemy.position.x = SPACE_RADIUS;
     var turbulence = Math.random();
     var getNext = function getNext() {
-        return Math.random() * turbulence * 50 - 25 * turbulence;
+        return Math.random() * turbulence * (200 - 100) * turbulence;
     };
-    var points = [new THREE.Vector3(SPACE_RADIUS, y + getNext(), 0),
-    // new THREE.Vector3(100, y + getNext(), 0),
-    new THREE.Vector3(SPACE_RADIUS / 2, y + getNext(), 0),
-    // new THREE.Vector3(25, y + getNext(), 0),
-    new THREE.Vector3(0, y + getNext(), 0),
-    // new THREE.Vector3(-25, y + getNext(), 0),
-    new THREE.Vector3(-SPACE_RADIUS / 2, y + getNext(), 0),
-    // new THREE.Vector3(-100, y + getNext(), 0),
-    new THREE.Vector3(-SPACE_RADIUS, y + getNext(), 0)];
+    var currentX = -SPACE_RADIUS;
+    var max = SPACE_RADIUS;
+    var step = (-currentX + max) / 10;
+    var points = [];
+    while (currentX < max) {
+        points.push(new THREE.Vector3(currentX, y + getNext(), 0));
+        currentX += step;
+    }
     var _a = [new THREE.Vector3(0, 0, 1), Math.random() * 2 * Math.PI],
         axis = _a[0],
         angle = _a[1];
@@ -45773,6 +45810,7 @@ function createEnemy(y) {
                 if (next) {
                     enemy.lookAt(next);
                     enemy.rotateY(Math.PI / 2);
+                    enemy.rotateZ(-Math.PI / 2);
                 }
             } else {
                 var idx = animations.indexOf(animator);
@@ -45784,11 +45822,12 @@ function createEnemy(y) {
             enemyBox.setFromObject(enemy);
             if (playerBox.intersectsBox(enemyBox)) {
                 var pos = enemy.position.clone();
-                trigger(pos);
+                triggerExplosion(pos);
                 var idx = animations.indexOf(animator);
                 idx !== -1 && animations.splice(idx, 1);
                 scene.remove(enemy);
                 totalEnemies--;
+                removeOneLife();
             }
         }
     };
@@ -45865,7 +45904,7 @@ function onKeyUp(evt) {
             playerControls.down = 0;
             break;
         case " ":
-            shoot();
+            // shoot();
             playerControls.space = 0;
             break;
         default:
@@ -45926,8 +45965,11 @@ function loop(time) {
         return a.animate(time, delta);
     });
     soundAnalyserUpdate();
+    // if (typeof controls !== "undefined") {
     // controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+    // }
     renderer.render(scene, camera);
+    updateTime(time);
     // annie.update(1000 * delta);
 }
 function createCatmullRomPath(points, velocity, loop) {
@@ -45990,7 +46032,7 @@ function shoot() {
         scene.remove(shot);
     }
 }
-},{"three":"node_modules/three/build/three.module.js","./lib/OrbitControls":"src/lib/OrbitControls.ts","./lib/GPUParticleSystem":"src/lib/GPUParticleSystem.js","./helpers":"src/helpers.ts","shader-particle-engine":"node_modules/shader-particle-engine/build/SPE.min.js","./particles/simple":"src/particles/simple.ts","./assets/AssaultOnMistCastle.ogg":"src/assets/AssaultOnMistCastle.ogg","./assets/spaceshooter/Backgrounds/black.png":"src/assets/spaceshooter/Backgrounds/black.png","./assets/spaceshooter/PNG/playerShip1_blue.png":"src/assets/spaceshooter/PNG/playerShip1_blue.png","./assets/spaceshooter/PNG/ufoBlue.png":"src/assets/spaceshooter/PNG/ufoBlue.png","./assets/spaceshooter/PNG/ufoGreen.png":"src/assets/spaceshooter/PNG/ufoGreen.png","./assets/spaceshooter/PNG/ufoRed.png":"src/assets/spaceshooter/PNG/ufoRed.png","./assets/spaceshooter/PNG/ufoYellow.png":"src/assets/spaceshooter/PNG/ufoYellow.png","./assets/smokeparticle.png":"src/assets/smokeparticle.png","./assets/sprite-explosion2.png":"src/assets/sprite-explosion2.png"}],"node_modules/parcel-bundler/lib/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"three":"node_modules/three/build/three.module.js","./lib/OrbitControls":"src/lib/OrbitControls.ts","./lib/GPUParticleSystem":"src/lib/GPUParticleSystem.js","./helpers":"src/helpers.ts","shader-particle-engine":"node_modules/shader-particle-engine/build/SPE.min.js","./particles/simple":"src/particles/simple.ts","./assets/AssaultOnMistCastle.ogg":"src/assets/AssaultOnMistCastle.ogg","./assets/spaceshooter/Backgrounds/black.png":"src/assets/spaceshooter/Backgrounds/black.png","./assets/spaceshooter/PNG/playerShip1_blue.png":"src/assets/spaceshooter/PNG/playerShip1_blue.png","./assets/spaceshooter/PNG/Enemies/enemyBlue1.png":"src/assets/spaceshooter/PNG/Enemies/enemyBlue1.png","./assets/spaceshooter/PNG/Enemies/enemyGreen2.png":"src/assets/spaceshooter/PNG/Enemies/enemyGreen2.png","./assets/spaceshooter/PNG/Enemies/enemyRed3.png":"src/assets/spaceshooter/PNG/Enemies/enemyRed3.png","./assets/spaceshooter/PNG/ufoYellow.png":"src/assets/spaceshooter/PNG/ufoYellow.png","./assets/smokeparticle.png":"src/assets/smokeparticle.png","./assets/sprite-explosion2.png":"src/assets/sprite-explosion2.png"}],"node_modules/parcel-bundler/lib/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 
@@ -46019,7 +46061,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = '' || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + '61746' + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + '55044' + '/');
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);
 

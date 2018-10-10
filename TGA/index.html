@@ -21,14 +21,28 @@
 			top: 0;
 			right: 0;
 			color: white;
+			pointer-events: none;
+		}
+
+		#stats {
+			position: absolute;
+			top: 0;
+			left: 0;
+			color: white;
+			pointer-events: none;
 		}
 	</style>
 </head>
 
 <body>
+	<div id="stats">
+		<div id="life"></div>
+		<div id="time"></div>
+	</div>
 	<div id="app"></div>
 	<div id="info">
-		music by <a href="http://www.newgrounds.com/audio/listen/376737" target="_blank" rel="noopener">skullbeatz</a>
+		<!-- music by <a href="http://www.newgrounds.com/audio/listen/376737" target="_blank" rel="noopener">skullbeatz</a> -->
+		music by <a href="http://www.tannerhelland.com/1625/song-assault-mist-castle/" target="_blank" rel="noopener">Tanner Helland</a>
 	</div>
 	<script src="src/index.ts"></script>
 </body>
