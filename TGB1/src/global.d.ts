@@ -14,3 +14,4 @@ declare module "*.fbx" {
   var _: string;
   export default _;
 }
+declare module 'zlibjs/bin/inflate.min.js';

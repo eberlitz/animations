@@ -1,15 +1,14 @@
 import * as THREE from "three";
-// import "./lib/inflate.min.js";
-import Zlib from 'zlibjs/bin/inflate.min.js';
+import Zlib from "zlibjs/bin/inflate.min.js";
 (window as any).Zlib = Zlib.Zlib;
 
 import "./lib/OrbitControls";
 import "./lib/FBXLoader";
 
-import FBXBoxing from "./models/Boxing.fbx";
-import FBXSambaDancing from "./models/Samba Dancing.fbx";
-import FBXWalking from "./models/Walking.fbx";
-
+import FBX1 from "./models/Samba Dancing.fbx";
+import FBX2 from "./models/Chapa 2.fbx";
+import FBX3 from "./models/Quarterback Pass.fbx";
+import FB4 from "./models/Thriller Part 2.fbx";
 
 const untypedWindow = window as any;
 untypedWindow.THREE = THREE;
@@ -28,8 +27,6 @@ const textureLoader = new THREE.TextureLoader();
 const scene = new THREE.Scene();
 const clock = new THREE.Clock();
 
-// scene.add(helpers.addLight());
-
 const renderer = new THREE.WebGLRenderer({
   // alpha: true,
   antialias: true
@@ -47,31 +44,14 @@ var aspect = window.innerWidth / window.innerHeight;
 //   1,
 //   4000
 // );
-const camera = new THREE.PerspectiveCamera(
-  45,
-  aspect,
-  1,
-  10000
-);
-// camera.position.x = 0;
-// camera.position.y = 0;
-// camera.position.z = 75;
-// camera.zoom = 1;
-// camera.lookAt(new THREE.Vector3(0, 0, 0));
-// camera.updateMatrix();
-
+const camera = new THREE.PerspectiveCamera(45, aspect, 1, 10000);
 camera.position.set(100, 200, 300);
-
-// camera.lookAt(new THREE.Vector3(0, 1, 0));
-// camera.updateMatrix();
 
 camera.updateMatrixWorld(true);
 (window as any).camera = camera;
 
 scene.background = new THREE.Color(0xa0a0a0);
 scene.fog = new THREE.Fog(0xa0a0a0, 200, 1000);
-
-
 
 let light: any = new THREE.HemisphereLight(0xffffff, 0x444444);
 light.position.set(0, 200, 0);
@@ -86,8 +66,11 @@ light.shadow.camera.right = 120;
 scene.add(light);
 
 // ground
-var mesh = new THREE.Mesh(new THREE.PlaneBufferGeometry(2000, 2000), new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false }));
-mesh.rotation.x = - Math.PI / 2;
+var mesh = new THREE.Mesh(
+  new THREE.PlaneBufferGeometry(2000, 2000),
+  new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false })
+);
+mesh.rotation.x = -Math.PI / 2;
 mesh.receiveShadow = true;
 scene.add(mesh);
 var grid = new THREE.GridHelper(2000, 20, 0x000000, 0x000000);
@@ -104,64 +87,42 @@ const controls = new THREE.OrbitControls(camera, renderer.domElement);
 // controls.enableKeys = false;
 controls.target.set(0, 0, 0);
 
-
 const animations = [];
 let currentAnimationIdx = undefined;
 
-function changeAnimation(){
-  animations.forEach(obj=>{
+function changeAnimation() {
+  animations.forEach(obj => {
     scene.remove(obj);
-  })
-  if (currentAnimationIdx === undefined){
-    currentAnimationIdx = animations.length-1;
+  });
+  if (currentAnimationIdx === undefined) {
+    currentAnimationIdx = animations.length - 1;
   }
   currentAnimationIdx++;
-  if (currentAnimationIdx > (animations.length -1)){
+  if (currentAnimationIdx > animations.length - 1) {
     currentAnimationIdx = 0;
   }
 
   scene.add(animations[currentAnimationIdx]);
-
 }
 
 var loader = new THREE.FBXLoader();
-[
-  FBXBoxing,
-  FBXSambaDancing,
-  FBXWalking
-].forEach((anim) => {
+[FBX1, FBX2, FBX3, FB4].forEach(anim => {
   loader.load(anim, (object: any) => {
     object.mixer = new THREE.AnimationMixer(object);
+    (object as THREE.Object3D).scale.setScalar(5);
     mixers.push(object.mixer);
     var action = object.mixer.clipAction(object.animations[0]);
     action.play();
-    object.traverse(function (child) {
+    object.traverse(function(child) {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
       }
     });
-    // scene.add(object);
     animations.push(object);
     changeAnimation();
   });
-})
-
-// // model
-// loader.load(FBXBoxing, function (object: any) {
-//   object.mixer = new THREE.AnimationMixer(object);
-//   mixers.push(object.mixer);
-//   var action = object.mixer.clipAction(object.animations[0]);
-//   action.play();
-//   object.traverse(function (child) {
-//     if (child.isMesh) {
-//       child.castShadow = true;
-//       child.receiveShadow = true;
-//     }
-//   });
-//   scene.add(object);
-// });
-
+});
 
 window.addEventListener("resize", onResize, false);
 window.addEventListener("keyup", onKeyUp, false);
@@ -174,7 +135,7 @@ function onKeyDown(evt: KeyboardEvent) {
   switch (evt.key) {
     case "d":
     case "ArrowRight":
-    changeAnimation();
+      changeAnimation();
       // playerControls.right = 1;
       break;
     case "a":
@@ -262,8 +223,6 @@ function loop(time: number = 0) {
     }
   }
 
-
   renderer.render(scene, camera);
-  controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+  // controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
 }
-
