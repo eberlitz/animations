@@ -239,7 +239,7 @@ var loader = new THREE.FBXLoader();
 
 loader.load(FBXIdle, (object: any) => {
   const mixer = object.mixer = new THREE.AnimationMixer(object);
-  // (object as THREE.Object3D).scale.setScalar(5);
+  (object as THREE.Object3D).scale.setScalar(0.6);
   object.traverse(function (child) {
     if (child.isMesh) {
       child.castShadow = true;
